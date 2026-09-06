@@ -1,0 +1,50 @@
+# Multiplextashtic Configuration
+# Copy this file to config.yaml and customize.
+
+physical_node:
+  # Connection type: "serial" (USB) or "tcp" (network)
+  connection_type: "serial"
+
+  # Serial port settings (used when connection_type = "serial")
+  serial_port: "COM55"           # Windows
+  # serial_port: "/dev/ttyUSB0"  # Linux
+
+  # TCP settings (used when connection_type = "tcp")
+  tcp_host: "192.168.1.100"
+  tcp_port: 4403
+
+  baud_rate: 115200
+  tcp_idle_timeout: 30         # seconds without data before assuming TCP disconnect (0 = disabled)
+
+  reconnect:
+    enabled: true
+    initial_delay: 1             # seconds
+    max_delay: 60                # seconds
+    multiplier: 2                # exponential backoff
+
+server:
+  host: "0.0.0.0"               # Listen on all interfaces
+  port: 4404                     # VN port (4403 is physical node default)
+  max_clients: 20
+  max_payload_size: 10240        # max frame size in bytes
+
+virtual_node:
+  long_name: "Virtual Multiplexer"
+  short_name: "VMUX"
+  sync_physical_identity: true   # copy identity from physical node
+
+security:
+  blocked_portnums:
+    - "ADMIN_APP"
+  allow_admin_from_ips: []       # IP/CIDR whitelist for admin commands (e.g. "192.168.1.0/24" for whole LAN)
+
+discovery:
+  # mDNS (Avahi/Zeroconf) service discovery as _meshtastic._tcp.local.
+  # NOTE: On Windows, the built-in mDNS responder holds port 5353, which
+  # prevents the Python zeroconf library from responding to mDNS queries.
+  enabled: true
+
+logging:
+  level: "INFO"                  # DEBUG, INFO, WARNING, ERROR
+  file: "logs/multiplexer.log"   # empty string = no file logging
+  console: true

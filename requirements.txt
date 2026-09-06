@@ -1,0 +1,6 @@
+﻿meshtastic
+protobuf
+pyyaml>=6.0
+pydantic>=2.0
+pyserial-asyncio>=0.6
+zeroconf>=0.132.0

@@ -1,0 +1,22 @@
+services:
+  multiplextashtic:
+    build: .
+    container_name: multiplextashtic
+    restart: unless-stopped
+    # Host networking required for mDNS multicast to work.
+    # Bridge mode blocks multicast so mDNS won't announce.
+    network_mode: host
+    ports: []
+    volumes:
+      - ./configs/config.yaml:/app/configs/config.yaml:ro
+      - ./logs:/app/logs
+    devices:
+      # Uncomment for serial connection:
+      # - "/dev/ttyUSB0:/dev/ttyUSB0"
+    environment:
+      - TZ=UTC
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

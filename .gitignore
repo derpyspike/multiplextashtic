@@ -1,0 +1,20 @@
+# Development workspace
+.work/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Runtime
+logs/
+*.log
+
+# Config with real device data
+configs/config.yaml
+
+# OS
+.DS_Store
+Thumbs.db
