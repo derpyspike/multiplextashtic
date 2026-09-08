@@ -44,6 +44,25 @@ discovery:
   # prevents the Python zeroconf library from responding to mDNS queries.
   enabled: true
 
+mqtt_bridge:
+  # Proxy-relay MQTT bridge (disabled by default). Credentials live in config.yaml (gitignored).
+  enabled: false
+  broker: "mqtt.meshtastic.org"
+  port: 8883
+  tls: true
+  username: ""            # MQTT broker user; also used in client-id
+  password: ""            # plaintext in config.yaml (chmod 600)
+  uplink_enabled: true    # always uplink when enabled (kill switch)
+  downlink_enabled: false # allow MQTT->mesh injection when true
+  ignore_ok_to_mqtt: false # true = upload any message ignoring channel flags
+  mqtt_username: ""       # client-id = mux-v{ver}-mqtt_username, else ...-{nodeID}
+  root_topic: "msh"
+  raw_root_topic: "raw"   # raw gateway tree root (outside msh/ so apps never see it)
+  region: ""              # explicit region (empty = auto: proxy topics > LoRa enum > EU_868)
+  gateway_enabled: false  # publish every serial RF packet, even unknown channels
+  raw_mirror_all: false   # false = raw gets only non-proxy traffic, true = mirror everything
+  keepalive: 60
+
 logging:
   level: "INFO"                  # DEBUG, INFO, WARNING, ERROR
   file: "logs/multiplexer.log"   # empty string = no file logging

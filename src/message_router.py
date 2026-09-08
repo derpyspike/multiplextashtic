@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import logging
 
@@ -30,9 +31,10 @@ def _ip_matches_any(client_ip: str, allowed_entries: list[str]) -> bool:
 
 
 class MessageRouter:
-    def __init__(self, phys_mgr, app_config: cfg.AppConfig):
+    def __init__(self, phys_mgr, app_config: cfg.AppConfig, mqtt_bridge=None):
         self._phys_mgr = phys_mgr
         self._app_config = app_config
+        self._mqtt_bridge = mqtt_bridge
 
     async def route_from_client(self, payload: bytes, client_ip: str = "unknown") -> tuple[bool, bytes | None, bytes | None]:
         """Route a ToRadio payload from a client.
@@ -59,6 +61,14 @@ class MessageRouter:
 
         if to_radio.want_config_id:
             logger.info(f"Client requested config (id={to_radio.want_config_id})")
+            return False, None, None
+
+        if to_radio.HasField("mqttClientProxyMessage"):
+            logger.info("Client sent mqttClientProxyMessage; publishing via MQTT bridge")
+            if self._mqtt_bridge is not None:
+                msg = to_radio.mqttClientProxyMessage
+                payload = bytes(msg.data) if msg.data else (msg.text.encode() if msg.text else b"")
+                await self._mqtt_bridge.publish_proxy(msg.topic, payload, retain=msg.retained)
             return False, None, None
 
         if to_radio.HasField("packet"):
@@ -163,7 +173,7 @@ class MessageRouter:
 
     def route_from_physical(self, from_radio_bytes: bytes) -> bytes | None:
         """Route a FromRadio payload from physical node to clients.
-        Returns the bytes to broadcast, or None to skip."""
+        Returns the bytes to broadcast, or None to skip/divert."""
         try:
             from_radio = mesh_pb2.FromRadio()
             from_radio.ParseFromString(from_radio_bytes)
@@ -173,4 +183,51 @@ class MessageRouter:
         if from_radio.config_complete_id:
             logger.debug(f"Router: forwarding config_complete id={from_radio.config_complete_id} to clients")
 
+        if from_radio.HasField("mqttClientProxyMessage"):
+            logger.info("Router: diverting mqttClientProxyMessage to MQTT bridge")
+            if self._mqtt_bridge is not None:
+                asyncio.create_task(self._publish_proxy_to_bridge(from_radio))
+            return None
+
+        if from_radio.HasField("packet") and self._mqtt_bridge is not None:
+            bridge_cfg = self._app_config.mqtt_bridge
+            if bridge_cfg.enabled and bridge_cfg.gateway_enabled:
+                pkt = from_radio.packet
+                covered = self._mqtt_bridge.is_proxy_covered(pkt.channel)
+                should = self._gateway_should_publish(pkt)
+                logger.debug(
+                    f"Router: gateway decision id={pkt.id} ch={pkt.channel} "
+                    f"covered={covered} publish={should}"
+                )
+                if should:
+                    asyncio.create_task(self._mqtt_bridge.publish_packet(pkt))
+
         return from_radio_bytes
+
+    def _gateway_should_publish(self, packet: mesh_pb2.MeshPacket) -> bool:
+        """Partition gateway vs proxy (plus packet-id safety dedupe).
+
+        mirror_all=true -> everything goes to raw. Otherwise only channels
+        the proxy path doesn't cover (no uplink flag / unknown channel).
+        """
+        bridge_cfg = self._app_config.mqtt_bridge
+        if bridge_cfg.raw_mirror_all:
+            return True
+        return not self._mqtt_bridge.is_proxy_covered(packet.channel)
+
+    async def _publish_proxy_to_bridge(self, from_radio: mesh_pb2.FromRadio) -> None:
+        try:
+            msg = from_radio.mqttClientProxyMessage
+            payload = bytes(msg.data) if msg.data else (msg.text.encode() if msg.text else b"")
+            if payload:
+                try:
+                    from meshtastic.protobuf import mqtt_pb2
+                    env = mqtt_pb2.ServiceEnvelope()
+                    env.ParseFromString(payload)
+                    if env.packet.id:
+                        self._mqtt_bridge.note_proxy_published(env.packet.id)
+                except Exception:
+                    pass
+            await self._mqtt_bridge.publish_proxy(msg.topic, payload, retain=msg.retained)
+        except Exception as e:
+            logger.error(f"Router: failed to publish proxy to MQTT bridge: {e}")

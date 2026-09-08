@@ -25,6 +25,7 @@ class ClientHandler:
         config_capture=None,
         msg_queue=None,
         broadcast_cb=None,
+        mqtt_bridge=None,
     ):
         self._client_id = client_id
         self._reader = reader
@@ -42,6 +43,7 @@ class ClientHandler:
         self._last_config_sent_at = 0.0
         self._last_config_id = 0
         self.last_activity: float = time.time()
+        self._mqtt_bridge = mqtt_bridge
 
     @property
     def peer_name(self) -> tuple:
@@ -159,10 +161,20 @@ class ClientHandler:
             logger.info(f"Client {self._client_id}: requested disconnect")
             return
 
+        # Route proxy messages via MQTT bridge through MessageRouter
+        if to_radio.HasField("mqttClientProxyMessage"):
+            from src.message_router import MessageRouter
+            router = MessageRouter(self._phys_mgr, self._app_config, self._mqtt_bridge)
+            client_ip = self._peer_name[0] if self._peer_name else "unknown"
+            allowed, raw_to_forward, client_response = await router.route_from_client(payload, client_ip)
+            if client_response:
+                await self._send_raw(client_response)
+            return
+
         # Route packet messages
         if to_radio.HasField("packet"):
             from src.message_router import MessageRouter
-            router = MessageRouter(self._phys_mgr, self._app_config)
+            router = MessageRouter(self._phys_mgr, self._app_config, self._mqtt_bridge)
             client_ip = self._peer_name[0] if self._peer_name else "unknown"
             allowed, raw_to_forward, client_response = await router.route_from_client(payload, client_ip)
             if client_response:

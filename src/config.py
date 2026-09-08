@@ -1,4 +1,4 @@
-﻿import yaml
+import yaml
 from pathlib import Path
 from typing import Literal, Optional, List
 from pydantic import BaseModel, Field, field_validator
@@ -42,6 +42,25 @@ class DiscoveryConfig(BaseModel):
     enabled: bool = True
 
 
+class MqttBridgeConfig(BaseModel):
+    enabled: bool = False
+    broker: str = "mqtt.meshtastic.org"
+    port: int = 8883
+    tls: bool = True
+    username: str = ""
+    password: str = ""
+    uplink_enabled: bool = True
+    downlink_enabled: bool = False
+    ignore_ok_to_mqtt: bool = False
+    mqtt_username: str = ""
+    root_topic: str = "msh"
+    keepalive: int = 60
+    gateway_enabled: bool = False
+    raw_mirror_all: bool = False
+    raw_root_topic: str = "raw"
+    region: str = ""
+
+
 class LoggingConfig(BaseModel):
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     file: Optional[str] = "logs/multiplexer.log"
@@ -54,6 +73,7 @@ class AppConfig(BaseModel):
     virtual_node: VirtualNodeConfig = VirtualNodeConfig()
     security: SecurityConfig = SecurityConfig()
     discovery: DiscoveryConfig = DiscoveryConfig()
+    mqtt_bridge: MqttBridgeConfig = MqttBridgeConfig()
     logging: LoggingConfig = LoggingConfig()
 
     @classmethod

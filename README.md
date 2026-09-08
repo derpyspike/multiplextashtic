@@ -101,6 +101,34 @@ security:
 discovery:
   enabled: true
 
+mqtt_bridge:
+  enabled: false              # enable MQTT proxy-relay to mqtt.meshtastic.org:8883
+  broker: "mqtt.meshtastic.org"
+  port: 8883
+  tls: true
+  username: ""                # MQTT broker user; also used in client-id
+  password: ""                # plaintext in config.yaml (chmod 600)
+  uplink_enabled: true        # always uplink when enabled
+  downlink_enabled: false     # allow MQTT->mesh injection when true
+  ignore_ok_to_mqtt: false    # true = upload any message ignoring channel flags
+  mqtt_username: ""           # client-id = mux-v{ver}-mqtt_username else ...-{nodeID}
+  root_topic: "msh"
+  raw_root_topic: "raw"       # raw gateway tree root (outside msh/ so apps never see it)
+  region: ""                  # explicit region (empty = auto: proxy topics > LoRa enum > EU_868)
+  gateway_enabled: false      # publish every serial RF packet, even unknown channels
+  raw_mirror_all: false       # false = raw gets only non-proxy traffic, true = mirror everything
+  keepalive: 60
+
+  # Gateway mode
+  #
+  # When `gateway_enabled: true`, every RF packet seen on serial is published as
+  # a `ServiceEnvelope` to `raw/{region}/!{senderHex}/{PORTNUM|ENCRYPTED|PKI}`
+  # (e.g. `raw/EU_868/!d86cbf84/POSITION_APP`), including channels the node
+  # doesn't have configured. The portnum label is routing-only: decoded packets
+  # keep their type, undecodable ones fall back to `ENCRYPTED` (`PKI` for DMs),
+  # and forwarded bytes are always the original opaque envelope. On Windows run
+  # with `PYTHONUTF8=1` (paho needs the selector event loop -- handled in `main.py`).
+
 logging:
   level: "INFO"                    # DEBUG, INFO, WARNING, ERROR
   file: "logs/multiplexer.log"
@@ -242,7 +270,14 @@ The wire format matches the Meshtastic-compatible PhoneAPI TCP framing:
 
 - **mDNS on Windows:** Python zeroconf competes with the built-in Windows mDNS responder for port 5353. Works reliably on Linux/Docker.
 - **No database layer:** Node state is held in memory (lost on restart). Config is re-captured from device defaults on reconnect.
-- **No MQTT proxy support:** MQTT proxy messages from clients are silently dropped. [WIP]
+- **MQTT bridge [WIP]:** Proxy-relay to `mqtt.meshtastic.org:8883` with `ignore_ok_to_mqtt`, `downlink_enabled`, and `uplink_enabled` toggles. See `mqtt_bridge` config section.
+
+## Known limitations
+
+- **mDNS on Windows:** Python zeroconf competes with the built-in Windows mDNS responder for port 5353. Works reliably on Linux/Docker.
+- **No database layer:** Node state is held in memory (lost on restart). Config is re-captured from device defaults on reconnect.
+- **MQTT proxy is proxy-relay only** (not a full independent gateway bridge); requires `proxy_to_client_enabled` on the node.
+- **Credentials stored plaintext in `configs/config.yaml`** — restrict file permissions (`chmod 600`).
 
 ## License
 
