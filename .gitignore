@@ -1,5 +1,8 @@
 # Development workspace
 .work/
+.opencode/
+openspec/
+tests/
 
 # Python
 __pycache__/

@@ -19,12 +19,14 @@ class TCPServer:
         app_config: cfg.AppConfig,
         cache=None,
         config_capture=None,
+        mqtt_bridge=None,
     ):
         self._config = config
         self._phys_mgr = phys_mgr
         self._app_config = app_config
         self._cache = cache
         self._config_capture = config_capture
+        self._mqtt_bridge = mqtt_bridge
         self._msg_queue = MessageQueue(phys_mgr)
         self._server: asyncio.Server | None = None
         self._clients: dict[str, ClientHandler] = {}
@@ -84,7 +86,7 @@ class TCPServer:
 
         logger.info(f"TCP connection accepted: {cid} from {peer[0]}:{peer[1]}")
 
-        handler = ClientHandler(cid, reader, writer, self._config, self._phys_mgr, self._app_config, self._cache, self._config_capture, self._msg_queue, self.broadcast_from_radio)
+        handler = ClientHandler(cid, reader, writer, self._config, self._phys_mgr, self._app_config, self._cache, self._config_capture, self._msg_queue, self.broadcast_from_radio, self._mqtt_bridge)
         self._clients[cid] = handler
 
         try:

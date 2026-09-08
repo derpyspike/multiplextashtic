@@ -102,13 +102,6 @@ async def main() -> None:
 
     config_capture = ConfigCapture()
 
-    from src.message_router import MessageRouter
-    router = MessageRouter(phys_mgr, app_config)
-
-    from src.tcp_server import TCPServer
-    server = TCPServer(app_config.server, phys_mgr, app_config, cache, config_capture)
-    phys_mgr.subscribe(lambda pkt: _route_broadcast(pkt, server, cache, logger, router))
-
     async def _on_physical_reconnect():
         logger.info("Physical node reconnected, re-capturing config")
         try:
@@ -134,6 +127,8 @@ async def main() -> None:
 
     incoming_task = None
     read_loop_task = None
+    server = None
+    mqtt_bridge = None
     try:
         await phys_mgr.connect()
 
@@ -163,6 +158,37 @@ async def main() -> None:
             if cache.node_info else app_config.virtual_node.short_name
         ) or app_config.virtual_node.short_name
 
+        from src.message_router import MessageRouter
+        router = MessageRouter(phys_mgr, app_config, mqtt_bridge)
+
+        from src.tcp_server import TCPServer
+        server = TCPServer(app_config.server, phys_mgr, app_config, cache, config_capture, mqtt_bridge)
+        phys_mgr.subscribe(lambda pkt: _route_broadcast(pkt, server, cache, logger, router))
+
+        if app_config.mqtt_bridge.enabled:
+            from src.mqtt_bridge import MqttBridge
+            mqtt_bridge = MqttBridge(app_config, node_num=node_num)
+            mqtt_bridge.set_cache(cache)
+            async def _mqtt_downlink(topic: str, payload: bytes) -> None:
+                if not phys_mgr._connected or not phys_mgr.my_info:
+                    logger.debug("MqttBridge: downlink deferred until handshake complete")
+                    return
+                from meshtastic.protobuf import mesh_pb2
+                to_radio = mesh_pb2.ToRadio()
+                mqtt_msg = mesh_pb2.MqttClientProxyMessage()
+                mqtt_msg.topic = topic
+                # Raw bytes always go in `data` (typically a serialized
+                # ServiceEnvelope). Decoding binary into `text` would corrupt it.
+                mqtt_msg.data = payload
+                to_radio.mqttClientProxyMessage.CopyFrom(mqtt_msg)
+                await phys_mgr.send_raw_to_radio(to_radio.SerializeToString())
+                logger.info(f"MQTT bridge injected downlink to mesh from {topic}")
+            await mqtt_bridge.start(downlink_callback=_mqtt_downlink)
+            logger.info("MQTT bridge started")
+            router._mqtt_bridge = mqtt_bridge
+            server._mqtt_bridge = mqtt_bridge
+            cache.mqtt_bridge = mqtt_bridge
+
         from src.mdns_service import MDNSService
         mdns = MDNSService(app_config, short_name=short_name, node_id=node_id)
 
@@ -185,6 +211,8 @@ async def main() -> None:
         raise
     finally:
         logger.info("Shutting down...")
+        if mqtt_bridge is not None:
+            await mqtt_bridge.stop()
         if incoming_task:
             incoming_task.cancel()
         if "mdns" in locals():
@@ -258,6 +286,9 @@ async def _update_cache(from_radio_bytes: bytes, cache: StateCache, logger: logg
             },
         }
         cache.update_channel(channel_data)
+        bridge = getattr(cache, "mqtt_bridge", None)
+        if bridge is not None:
+            bridge.mark_channel(ch.index)
         logger.info(f"Cache: channel {ch.index} captured: {ch.settings.name}")
         return
 
@@ -335,6 +366,8 @@ async def _route_broadcast(from_radio_bytes: bytes, server: "TCPServer", cache: 
 
 if __name__ == "__main__":
     try:
+        if sys.platform == "win32":
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
