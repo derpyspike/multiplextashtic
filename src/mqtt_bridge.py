@@ -224,7 +224,7 @@ class MqttBridge:
             self._published += 1
             self._gateway_published += 1
             self._remember_publish(topic, payload)
-            logger.info(f"MqttBridge: gateway published {topic} ({len(payload)}B)")
+            logger.debug(f"MqttBridge: gateway published {topic} ({len(payload)}B)")
             return True
         except Exception as e:
             logger.error(f"MqttBridge: gateway publish failed: {e}")
@@ -398,7 +398,7 @@ class MqttBridge:
             await self._client.publish(final_topic, payload=payload, qos=0, retain=retain)
             self._published += 1
             self._remember_publish(final_topic, payload)
-            logger.info(f"MqttBridge: published proxy to {final_topic} ({len(payload)}B)")
+            logger.debug(f"MqttBridge: published proxy to {final_topic} ({len(payload)}B)")
         except Exception as e:
             logger.error(f"MqttBridge: publish failed: {e}")
 

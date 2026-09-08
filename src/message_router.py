@@ -64,7 +64,7 @@ class MessageRouter:
             return False, None, None
 
         if to_radio.HasField("mqttClientProxyMessage"):
-            logger.info("Client sent mqttClientProxyMessage; publishing via MQTT bridge")
+            logger.debug("Client sent mqttClientProxyMessage; publishing via MQTT bridge")
             if self._mqtt_bridge is not None:
                 msg = to_radio.mqttClientProxyMessage
                 payload = bytes(msg.data) if msg.data else (msg.text.encode() if msg.text else b"")
@@ -184,7 +184,7 @@ class MessageRouter:
             logger.debug(f"Router: forwarding config_complete id={from_radio.config_complete_id} to clients")
 
         if from_radio.HasField("mqttClientProxyMessage"):
-            logger.info("Router: diverting mqttClientProxyMessage to MQTT bridge")
+            logger.debug("Router: diverting mqttClientProxyMessage to MQTT bridge")
             if self._mqtt_bridge is not None:
                 asyncio.create_task(self._publish_proxy_to_bridge(from_radio))
             return None

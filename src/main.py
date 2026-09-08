@@ -182,7 +182,7 @@ async def main() -> None:
                 mqtt_msg.data = payload
                 to_radio.mqttClientProxyMessage.CopyFrom(mqtt_msg)
                 await phys_mgr.send_raw_to_radio(to_radio.SerializeToString())
-                logger.info(f"MQTT bridge injected downlink to mesh from {topic}")
+                logger.debug(f"MQTT bridge injected downlink to mesh from {topic}")
             await mqtt_bridge.start(downlink_callback=_mqtt_downlink)
             logger.info("MQTT bridge started")
             router._mqtt_bridge = mqtt_bridge
@@ -289,7 +289,7 @@ async def _update_cache(from_radio_bytes: bytes, cache: StateCache, logger: logg
         bridge = getattr(cache, "mqtt_bridge", None)
         if bridge is not None:
             bridge.mark_channel(ch.index)
-        logger.info(f"Cache: channel {ch.index} captured: {ch.settings.name}")
+        logger.debug(f"Cache: channel {ch.index} captured: {ch.settings.name}")
         return
 
     if not fr.HasField("packet"):
