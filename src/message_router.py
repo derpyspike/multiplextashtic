@@ -119,14 +119,14 @@ class MessageRouter:
 
         portnum_name = portnums_pb2._PORTNUM.values_by_number.get(portnum)
         name_str = portnum_name.name if portnum_name else f"UNKNOWN[{portnum}]"
-        logger.info(f"Forwarding {name_str}[{portnum}] to physical node")
+        logger.debug(f"Forwarding {name_str}[{portnum}] to physical node")
 
         # Strip PKI encryption from from=0 packets (Yeraze §5.7)
         # Android clients send PKI-encrypted packets with from=0 which the
         # physical node can't validate (no public key for node 0).
         pkt_from = getattr(packet, "from", 0)
         if pkt_from == 0 and packet.pki_encrypted:
-            logger.info(f"Stripping PKI encryption (from=0, pki_encrypted=True)")
+            logger.debug(f"Stripping PKI encryption (from=0, pki_encrypted=True)")
             try:
                 packet.pki_encrypted = False
                 packet.ClearField("public_key")
@@ -171,6 +171,6 @@ class MessageRouter:
             return from_radio_bytes
 
         if from_radio.config_complete_id:
-            logger.info(f"Router: forwarding config_complete id={from_radio.config_complete_id} to clients")
+            logger.debug(f"Router: forwarding config_complete id={from_radio.config_complete_id} to clients")
 
         return from_radio_bytes

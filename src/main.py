@@ -241,7 +241,7 @@ async def _update_cache(from_radio_bytes: bytes, cache: StateCache, logger: logg
         }
         cache.update_known_node(node_info)
         if num == cache.my_node_num:
-            logger.info(f"Cache: own NodeInfo captured via from_radio.node_info: {ni.user.long_name}")
+            logger.debug(f"Cache: own NodeInfo captured via from_radio.node_info: {ni.user.long_name}")
             cache.update_node_info(node_info)
         return
 
@@ -258,7 +258,7 @@ async def _update_cache(from_radio_bytes: bytes, cache: StateCache, logger: logg
             },
         }
         cache.update_channel(channel_data)
-        logger.info(f"Cache: channel {ch.index} captured: {ch.settings.name}")
+        logger.debug(f"Cache: channel {ch.index} captured: {ch.settings.name}")
         return
 
     if not fr.HasField("packet"):
@@ -294,7 +294,7 @@ async def _update_cache(from_radio_bytes: bytes, cache: StateCache, logger: logg
         }
         cache.update_known_node(node_info)
         if num == cache.my_node_num:
-            logger.info(f"Cache: own NodeInfo captured via NODEINFO_APP: {user.long_name}")
+            logger.debug(f"Cache: own NodeInfo captured via NODEINFO_APP: {user.long_name}")
             cache.update_node_info(node_info)
 
 
@@ -311,18 +311,18 @@ async def _broadcast_callback(from_radio_bytes: bytes, server: "TCPServer", cach
         portnum = decoded.portnum
         pn_entry = _PORTNUM_LOOKUP.get(portnum)
         portnum_str = pn_entry.name if pn_entry else f"UNKNOWN[{portnum}]"
-        logger.info(
+        logger.debug(
             f"ch={pkt.channel} id={pkt.id} type={portnum_str} "
             f"from={hex(getattr(pkt, 'from', 0))} to={hex(pkt.to)}"
         )
     elif fr.HasField("my_info"):
-        logger.info(f"MyNodeInfo: node_num=0x{fr.my_info.my_node_num:08x}")
+        logger.debug(f"MyNodeInfo: node_num=0x{fr.my_info.my_node_num:08x}")
     elif fr.HasField("node_info"):
-        logger.info(f"NodeInfo: num=0x{fr.node_info.num:08x}")
+        logger.debug(f"NodeInfo: num=0x{fr.node_info.num:08x}")
     elif fr.HasField("channel"):
-        logger.info(f"Channel: idx={fr.channel.index} name={fr.channel.settings.name}")
+        logger.debug(f"Channel: idx={fr.channel.index} name={fr.channel.settings.name}")
     elif fr.config_complete_id != 0:
-        logger.info(f"ConfigComplete: id={fr.config_complete_id}")
+        logger.debug(f"ConfigComplete: id={fr.config_complete_id}")
 
     await server.broadcast_from_radio(from_radio_bytes)
 
